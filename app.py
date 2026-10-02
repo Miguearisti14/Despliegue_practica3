@@ -24,27 +24,74 @@ modelo, variables = pickle.load(open(filename, 'rb'))
 #data = pd.read_excel("nuevos_datos.xlsx")
 #data.head()
 
+#Configuración de la página (debe ser el primer comando de streamlit)
+st.set_page_config(page_title='Predicción Saber 11', page_icon='🎓', layout='centered')
+
+#Cargamos el modelo
+import pickle
+filename = 'modelo-reg.pkl'
+modelo, variables = pickle.load(open(filename, 'rb'))
+
 #Interfaz gráfica
 
+#Encabezado
+st.title('🎓 Predicción del puntaje global en Saber 11')
+st.markdown('Ingresa las características del colegio y del estudiante para estimar el **puntaje global** de la prueba.')
 
-#Se crea interfaz gráfica con streamlit para captura de los datos
+#Barra lateral con información del modelo
+with st.sidebar:
+    st.header('Sobre el modelo')
+    st.write('Modelo de regresión Random Forest entrenado con datos de Saber 11.')
+    st.metric('Error promedio (MAE)', '≈ 33 puntos')
+    st.caption('El puntaje global promedio es ~228, por lo que el error equivale a cerca del 14.7%.')
 
-import streamlit as st
-import pandas as pd
+#Captura de datos organizada en un formulario
+with st.form('formulario'):
+    st.subheader('Datos del colegio')
+    col1, col2 = st.columns(2)
+    with col1:
+        cole_area_ubicacion = st.selectbox('Área de ubicación', ['URBANO', 'RURAL'])
+        cole_naturaleza = st.selectbox('Naturaleza', ['OFICIAL', 'NO OFICIAL'])
+    with col2:
+        cole_jornada = st.selectbox('Jornada', ['COMPLETA', 'MAÑANA', 'NOCHE', 'SABATINA', 'TARDE', 'UNICA'])
+        cole_caracter = st.selectbox('Carácter', ['ACADÉMICO', 'NO APLICA', 'TÉCNICO', 'TÉCNICO/ACADÉMICO'])
 
-st.title('Predicción del puntaje global en Saber 11')
+    st.subheader('Datos del estudiante')
+    col3, col4 = st.columns(2)
+    with col3:
+        estu_genero = st.radio('Género', ['M', 'F'], horizontal=True)
+    with col4:
+        fami_estratovivienda = st.selectbox('Estrato de la vivienda', ['Estrato 1', 'Estrato 2', 'Estrato 3', 'Estrato 4', 'Estrato 5', 'Estrato 6', 'Sin Estrato'])
 
-cole_area_ubicacion = st.selectbox('Área de ubicación del colegio', ['URBANO', 'RURAL'])
-cole_caracter = st.selectbox('Carácter del colegio', ['ACADÉMICO', 'NO APLICA', 'TÉCNICO', 'TÉCNICO/ACADÉMICO'])
-cole_jornada = st.selectbox('Jornada del colegio', ['COMPLETA', 'MAÑANA', 'NOCHE', 'SABATINA', 'TARDE', 'UNICA'])
-cole_naturaleza = st.selectbox('Naturaleza del colegio', ['OFICIAL', 'NO OFICIAL'])
-estu_genero = st.selectbox('Género del estudiante', ['M', 'F'])
-fami_estratovivienda = st.selectbox('Estrato de la vivienda', ['Estrato 1', 'Estrato 2', 'Estrato 3', 'Estrato 4', 'Estrato 5', 'Estrato 6', 'Sin Estrato'])
-
+    predecir = st.form_submit_button('Predecir puntaje', type='primary', use_container_width=True)
 
 #Dataframe
 datos = [[cole_area_ubicacion, cole_caracter, cole_jornada, cole_naturaleza, estu_genero, fami_estratovivienda]]
 data = pd.DataFrame(datos, columns=['cole_area_ubicacion', 'cole_caracter', 'cole_jornada', 'cole_naturaleza', 'estu_genero', 'fami_estratovivienda']) #Dataframe con los mismos nombres de variables
+
+#Se realiza la preparación de datos
+data_preparada = data.copy()
+
+#En despliegue drop_first= False
+data_preparada = pd.get_dummies(data_preparada, columns=['cole_area_ubicacion', 'cole_caracter', 'cole_jornada', 'cole_naturaleza', 'estu_genero', 'fami_estratovivienda'], drop_first=False, dtype=int)
+
+#Se adicionan las columnas faltantes
+data_preparada = data_preparada.reindex(columns=variables, fill_value=0)
+
+#Predicción y resultados
+if predecir:
+    Y_pred = modelo.predict(data_preparada)
+    data['Prediccion'] = Y_pred
+
+    st.divider()
+    st.subheader('Resultado')
+    r1, r2 = st.columns(2)
+    r1.metric('Puntaje global estimado', f'{Y_pred[0]:.0f}')
+    r2.metric('Rango probable', f'{Y_pred[0] - 33.5:.0f} – {Y_pred[0] + 33.5:.0f}')
+    st.progress(min(max(float(Y_pred[0]) / 500, 0.0), 1.0), text='Posición en la escala 0 – 500')
+
+    with st.expander('Ver datos ingresados'):
+        st.dataframe(data, use_container_width=True, hide_index=True)
 
 #Se realiza la preparación de datos
 data_preparada=data.copy()
