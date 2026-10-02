@@ -24,6 +24,8 @@ modelo, variables = pickle.load(open(filename, 'rb'))
 #data = pd.read_excel("nuevos_datos.xlsx")
 #data.head()
 
+import streamlit as st
+
 #Configuración de la página (debe ser el primer comando de streamlit)
 st.set_page_config(page_title='Predicción Saber 11', page_icon='🎓', layout='centered')
 
